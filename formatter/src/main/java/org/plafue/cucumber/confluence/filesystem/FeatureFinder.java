@@ -12,7 +12,7 @@ public class FeatureFinder {
     private List<File> featuresFound = new ArrayList<File>();
 
 
-    public FeatureFinder(File file){
+    public FeatureFinder(File file) {
         this.file = file;
     }
 
@@ -23,6 +23,10 @@ public class FeatureFinder {
 
     private void walk(File file) {
         if (file.isDirectory()) {
+            if ("target".equals(file.getName())) {
+                return;
+            }
+
             for (File child : file.listFiles(featureFilter)) {
                 walk(child);
             }

@@ -1,11 +1,10 @@
 package org.plafue.cucumber.confluence.formatter;
 
-import org.plafue.cucumber.confluence.exceptions.FormatNotFoundException;
-import gherkin.formatter.Format;
-import gherkin.formatter.Formats;
-
 import java.util.HashMap;
 import java.util.Map;
+
+import gherkin.formatter.Format;
+import org.plafue.cucumber.confluence.exceptions.FormatNotFoundException;
 
 public class Macros extends ConfluenceStorageFormat {
 
@@ -38,7 +37,9 @@ public class Macros extends ConfluenceStorageFormat {
         }
 
         public String text(String text) {
-            return new EnclosingFormat("ac:macro", "ac:name=\"" + macroName + "\"").text(text);
+            return new EnclosingFormat("ac:macro", "ac:name=\"" + macroName + "\"")
+                    .text(new EnclosingFormat("ac:rich-text-body")
+                    .text(text));
         }
     }
 
