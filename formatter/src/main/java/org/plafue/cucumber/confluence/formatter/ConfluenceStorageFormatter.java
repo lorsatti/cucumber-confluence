@@ -1,20 +1,31 @@
 package org.plafue.cucumber.confluence.formatter;
 
-import gherkin.formatter.Format;
-import gherkin.formatter.Formatter;
-import gherkin.formatter.NiceAppendable;
-import gherkin.formatter.model.*;
-import gherkin.util.Mapper;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import static org.plafue.cucumber.confluence.formatter.ConfluenceStorageFormat.Formats.*;
-import static org.apache.commons.lang3.StringEscapeUtils.escapeHtml4;
-import static org.plafue.cucumber.confluence.formatter.Macros.Formats.*;
+import gherkin.formatter.Format;
+import gherkin.formatter.Formatter;
+import gherkin.formatter.NiceAppendable;
+import gherkin.formatter.model.Background;
+import gherkin.formatter.model.Comment;
+import gherkin.formatter.model.DataTableRow;
+import gherkin.formatter.model.DescribedStatement;
+import gherkin.formatter.model.Examples;
+import gherkin.formatter.model.Feature;
+import gherkin.formatter.model.Row;
+import gherkin.formatter.model.Scenario;
+import gherkin.formatter.model.ScenarioOutline;
+import gherkin.formatter.model.Step;
+import gherkin.formatter.model.Tag;
+import gherkin.formatter.model.TagStatement;
+import gherkin.util.Mapper;
+
 import static gherkin.util.FixJava.join;
 import static gherkin.util.FixJava.map;
+import static org.apache.commons.lang3.StringEscapeUtils.escapeHtml4;
+import static org.plafue.cucumber.confluence.formatter.ConfluenceStorageFormat.Formats.*;
+import static org.plafue.cucumber.confluence.formatter.Macros.Formats.*;
 
 /**
  * This class pretty prints feature files in Confluence Markup (tested with v4.1.22).
@@ -29,6 +40,7 @@ public class ConfluenceStorageFormatter implements Formatter {
     private final Options options;
     private final Macros macros;
     private final ConfluenceStorageFormat formats;
+    private StringBuilder sb = new StringBuilder();
 
     private List<Step> steps = new ArrayList<Step>();
     private DescribedStatement statement;
@@ -57,83 +69,97 @@ public class ConfluenceStorageFormatter implements Formatter {
 
     @Override
     public void feature(Feature feature) {
-        out.println(getFormat(HEADER1).text(feature.getName()));
-        printTags(feature.getTags());
+        System.out.println("Feature: " + feature.getName());
+        this.sb.append(getFormat(HEADER1).text(feature.getName()));
+        printTags(this.sb, feature.getTags());
         String description = feature.getDescription().replaceAll(NEWLINE, " ");
         if (!description.isEmpty()) {
-            out.println(description);
+            this.sb.append(description);
         }
-
     }
 
     @Override
     public void background(Background background) {
-        replay();
+        System.out.println("Background");
+        replay(this.sb);
         statement = background;
     }
 
     @Override
     public void scenario(Scenario scenario) {
-        replay();
+        System.out.println("Scenario: " + scenario.getName());
+        replay(this.sb);
         statement = scenario;
     }
 
     @Override
     public void scenarioOutline(ScenarioOutline scenarioOutline) {
-        replay();
+        System.out.println("Scenario outline: " + scenarioOutline.getName());
+        replay(this.sb);
         statement = scenarioOutline;
     }
 
     @Override
     public void startOfScenarioLifeCycle(Scenario scenario) {
         // NoOp
+        System.out.println("start");
     }
 
     @Override
     public void endOfScenarioLifeCycle(Scenario scenario) {
         // NoOp
+        System.out.println("end");
     }
 
     @Override
     public void examples(Examples examples) {
-        replay();
-        out.println();
-        printComments(examples.getComments(), " ");
-        printTags(examples.getTags());
-        out.println(getFormat(TABLE).text(
+        System.out.println("Examples");
+        replay(this.sb);
+        this.sb.append("\n");
+        printComments(this.sb, examples.getComments(), " ");
+        printTags(this.sb, examples.getTags());
+        this.sb.append(getFormat(TABLE).text(
                 getFormat(TABLE_ROW).text(getFormat(TABLE_HEAD_CELL).text(examples.getKeyword() + ": " + examples.getName())) +
                         getFormat(TABLE_ROW).text(getFormat(CELL).text(getMacro(PANEL).text(renderTable(examples.getRows()))))));
     }
 
     @Override
     public void step(Step step) {
+        System.out.println("Adding: " + step.getName());
         steps.add(step);
     }
 
     @Override
     public void syntaxError(String state, String event, List<String> legalEvents, String uri, Integer line) {
+        System.out.println("Syntax error");
         throw new UnsupportedOperationException();
     }
 
     @Override
     public void done() {
+        System.out.println("Done");
     }
 
     @Override
     public void close() {
+        System.out.println("Close");
         out.close();
     }
 
     public void eof() {
-        replay();
+        replay(this.sb);
+        System.out.
+                println("EOF");
+        out.println(this.sb.toString());
+        this.sb = new StringBuilder();
     }
 
-    private void replay() {
-        printSectionTitle();
-        printSteps();
+    private void replay(StringBuilder sb) {
+        printSectionTitle(sb);
+        printSteps(sb);
     }
 
-    private void printSteps() {
+    private void printSteps(StringBuilder sb) {
         if (steps.isEmpty()) return;
 
 
@@ -141,13 +167,13 @@ public class ConfluenceStorageFormatter implements Formatter {
         while (!steps.isEmpty()) {
             printStep(tableContents);
         }
-        out.println(getFormat(TABLE).text(tableContents.toString()));
+        sb.append(getFormat(TABLE).text(tableContents.toString()));
     }
 
-    private void printSectionTitle() {
+    private void printSectionTitle(StringBuilder sb) {
         if (statement == null) return;
 
-        out.println(
+        sb.append(
                 formats.get(HEADER2).text(
                         statement.getName().isEmpty() ?
                                 getFormat(RED_FOREGROUND).text(getFormat(ITALICS).text("Undefined section")) :
@@ -155,9 +181,9 @@ public class ConfluenceStorageFormatter implements Formatter {
                 ));
 
         if (statement instanceof TagStatement) {
-            printTags(((TagStatement) statement).getTags());
+            printTags(sb, ((TagStatement) statement).getTags());
         }
-        out.println(statement.getDescription());
+        sb.append(statement.getDescription());
         statement = null;
     }
 
@@ -223,35 +249,35 @@ public class ConfluenceStorageFormatter implements Formatter {
         return (i == 0);
     }
 
-    private void printComments(List<Comment> comments, String indent) {
+    private void printComments(StringBuilder sb, List<Comment> comments, String indent) {
         for (Comment comment : comments) {
-            out.println(indent + comment.getValue());
+            sb.append(indent + comment.getValue());
         }
     }
 
-    private void printTags(List<Tag> tags) {
+    private void printTags(StringBuilder sb, List<Tag> tags) {
         if (tags.isEmpty() || !options.isTagRenderingActive() ||
                 (options.isJiraTicketParsingInTags() && options.jiraServer == null)) return;
 
-        List<Tag> jiraIds = Collections.EMPTY_LIST;
+        List<Tag> jiraIds = Collections.emptyList();
 
         if (options.isJiraTicketParsingInTags()) {
             jiraIds = findJiraIdsAndExtractFromOriginalList(tags);
         }
 
         if (!tags.isEmpty()) {
-            out.println(getMacro(INFO).text(
+            sb.append(getMacro(INFO).text(
                     " This section is tagged as " +
                             join(map(tags, tagNameMapper), ", ")));
         }
 
         if (!jiraIds.isEmpty()) {
-            printJiraMacros(jiraIds);
+            printJiraMacros(sb, jiraIds);
         }
     }
 
-    private void printJiraMacros(List<Tag> jiraIds) {
-        out.println(join(map(jiraIds, new Mapper<Tag, String>() {
+    private void printJiraMacros(StringBuilder sb, List<Tag> jiraIds) {
+        sb.append(join(map(jiraIds, new Mapper<Tag, String>() {
             @Override
             public String map(Tag tag) {
                 return getMacro(JIRA).text(tag.getName().replace("@", ""));
@@ -260,7 +286,7 @@ public class ConfluenceStorageFormatter implements Formatter {
     }
 
     private List<Tag> findJiraIdsAndExtractFromOriginalList(List<Tag> tags) {
-        List<Tag> jiraIds = new ArrayList<Tag>();
+        List<Tag> jiraIds = new ArrayList<>();
         for (Tag tag : tags) {
             if (tag.getName().matches(JIRA_ISSUE_ID_FORMAT)) {
                 jiraIds.add(tag);

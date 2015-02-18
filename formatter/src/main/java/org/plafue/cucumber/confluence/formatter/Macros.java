@@ -9,7 +9,7 @@ import org.plafue.cucumber.confluence.exceptions.FormatNotFoundException;
 public class Macros extends ConfluenceStorageFormat {
 
     public static enum Formats {
-        INFO, PANEL, JIRA
+        INFO, PANEL, JIRA, EXPANDABLE
     }
 
     private final Map<Formats, Format> formats;
