@@ -18,6 +18,7 @@ public class Macros extends ConfluenceStorageFormat {
         this.formats = new HashMap<Formats, Format>() {{
             put(Formats.PANEL, new Macro("panel"));
             put(Formats.INFO, new Macro("info"));
+            put(Formats.EXPANDABLE, new StructuredMacro("expand"));
         }};
     }
 
@@ -39,7 +40,30 @@ public class Macros extends ConfluenceStorageFormat {
         public String text(String text) {
             return new EnclosingFormat("ac:macro", "ac:name=\"" + macroName + "\"")
                     .text(new EnclosingFormat("ac:rich-text-body")
-                    .text(text));
+                            .text(text));
+        }
+    }
+
+    public static class StructuredMacro implements Format {
+        private String macroName;
+
+        public StructuredMacro(String macroName) {
+            this.macroName = macroName;
+        }
+
+        @Override
+        public String text(String text) {
+            return new EnclosingFormat("ac:structured-macro", "ac:name=\"" + macroName + "\"")
+                    .text(new EnclosingFormat("ac:parameter", "ac:name=\"title\"").text("Expand...") + new EnclosingFormat("ac:rich-text-body")
+                            .text(text));
+        }
+
+        public String titledText(String title, String text) {
+
+            return new EnclosingFormat("ac:structured-macro", "ac:name=\"" + macroName + "\"")
+                    .text(new EnclosingFormat("ac:parameter", "ac:name=\"title\"").text(title) + "\n" +
+                            new EnclosingFormat("ac:rich-text-body")
+                                    .text(text));
         }
     }
 
@@ -53,7 +77,7 @@ public class Macros extends ConfluenceStorageFormat {
         public String text(String jiraId) {
             return new EnclosingFormat("ac:macro", "ac:name=\"jira\"").text(
                     new EnclosingFormat("ac:parameter", "ac:name=\"server\"").text(server) +
-                    new EnclosingFormat("ac:parameter", "ac:name=\"key\"").text(jiraId));
+                            new EnclosingFormat("ac:parameter", "ac:name=\"key\"").text(jiraId));
         }
     }
 

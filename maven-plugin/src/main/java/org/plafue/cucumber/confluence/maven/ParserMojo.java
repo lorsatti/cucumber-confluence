@@ -1,5 +1,9 @@
 package org.plafue.cucumber.confluence.maven;
 
+import java.io.File;
+import java.io.IOException;
+import java.util.List;
+
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
@@ -8,10 +12,6 @@ import org.apache.maven.plugins.annotations.Parameter;
 import org.plafue.cucumber.confluence.filesystem.FeatureFinder;
 import org.plafue.cucumber.confluence.formatter.ConfluenceStorageFormatter;
 import org.plafue.cucumber.confluence.parser.BatchParser;
-
-import java.io.File;
-import java.io.IOException;
-import java.util.List;
 
 @Mojo(name = "parse", defaultPhase = LifecyclePhase.NONE)
 public class ParserMojo extends AbstractMojo {
@@ -51,7 +51,7 @@ public class ParserMojo extends AbstractMojo {
 
     private void run(List<File> features, ConfluenceStorageFormatter.Options formatterOptions) throws MojoExecutionException {
         try {
-            parser.parse(features, formatterOptions, outputDirectory);
+            parser.parseIntoSingleFile(features, formatterOptions, outputDirectory);
         } catch (IOException e) {
             throw new MojoExecutionException("A problem occurred while parsing feature files", e);
         }

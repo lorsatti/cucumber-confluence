@@ -7,7 +7,7 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>maven-plugin</artifactId>
+    <artifactId>cucumber-confluence-maven-plugin</artifactId>
     <packaging>maven-plugin</packaging>
 
     <name>cucumber-confluence ${project.artifactId}</name>

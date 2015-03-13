@@ -3,6 +3,8 @@ package org.plafue.cucumber.confluence.formatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 import gherkin.formatter.Format;
 import gherkin.formatter.Formatter;
@@ -42,15 +44,12 @@ public class ConfluenceStorageFormatter implements Formatter {
     private final ConfluenceStorageFormat formats;
     private StringBuilder sb = new StringBuilder();
 
-    private List<Step> steps = new ArrayList<Step>();
+    private List<Step> steps = new ArrayList<>();
     private DescribedStatement statement;
-    private Mapper<Tag, String> tagNameMapper = new Mapper<Tag, String>() {
-        @Override
-        public String map(Tag tag) {
-            return getFormat(BOLD).text(getFormat(ITALICS).text(
-                    tag.getName().replace("@", "")));
-        }
-    };
+    private Mapper<Tag, String> tagNameMapper = tag ->
+            getFormat(BOLD).text(getFormat(ITALICS).text(tag.getName().replace("@", "")));
+    private String sectionName;
+    private StringBuilder sectionTitle;
 
     public ConfluenceStorageFormatter(Appendable out, Options options) {
         this.out = new NiceAppendable(out);
@@ -69,7 +68,6 @@ public class ConfluenceStorageFormatter implements Formatter {
 
     @Override
     public void feature(Feature feature) {
-        System.out.println("Feature: " + feature.getName());
         this.sb.append(getFormat(HEADER1).text(feature.getName()));
         printTags(this.sb, feature.getTags());
         String description = feature.getDescription().replaceAll(NEWLINE, " ");
@@ -80,41 +78,35 @@ public class ConfluenceStorageFormatter implements Formatter {
 
     @Override
     public void background(Background background) {
-        System.out.println("Background");
-        replay(this.sb);
+        replay(this.sb, Optional.of(background));
         statement = background;
     }
 
     @Override
     public void scenario(Scenario scenario) {
-        System.out.println("Scenario: " + scenario.getName());
-        replay(this.sb);
+        replay(this.sb, Optional.of(scenario));
         statement = scenario;
     }
 
     @Override
     public void scenarioOutline(ScenarioOutline scenarioOutline) {
-        System.out.println("Scenario outline: " + scenarioOutline.getName());
-        replay(this.sb);
+        replay(this.sb, Optional.of(scenarioOutline));
         statement = scenarioOutline;
     }
 
     @Override
     public void startOfScenarioLifeCycle(Scenario scenario) {
         // NoOp
-        System.out.println("start");
     }
 
     @Override
     public void endOfScenarioLifeCycle(Scenario scenario) {
         // NoOp
-        System.out.println("end");
     }
 
     @Override
     public void examples(Examples examples) {
-        System.out.println("Examples");
-        replay(this.sb);
+        replay(this.sb, Optional.empty());
         this.sb.append("\n");
         printComments(this.sb, examples.getComments(), " ");
         printTags(this.sb, examples.getTags());
@@ -125,38 +117,54 @@ public class ConfluenceStorageFormatter implements Formatter {
 
     @Override
     public void step(Step step) {
-        System.out.println("Adding: " + step.getName());
         steps.add(step);
     }
 
     @Override
     public void syntaxError(String state, String event, List<String> legalEvents, String uri, Integer line) {
-        System.out.println("Syntax error");
         throw new UnsupportedOperationException();
     }
 
     @Override
     public void done() {
-        System.out.println("Done");
     }
 
     @Override
     public void close() {
-        System.out.println("Close");
         out.close();
     }
 
     public void eof() {
-        replay(this.sb);
-        System.out.
-                println("EOF");
+        replay(this.sb, Optional.empty());
         out.println(this.sb.toString());
         this.sb = new StringBuilder();
     }
 
-    private void replay(StringBuilder sb) {
-        printSectionTitle(sb);
-        printSteps(sb);
+    private void replay(StringBuilder sb, Optional<DescribedStatement> statement) {
+
+        StringBuilder title = new StringBuilder();
+        printSectionTitle(title);
+        title.append("\n");
+        statement.ifPresent(s -> {
+            this.sectionName = statement.get().getName();
+            this.sectionTitle = title;
+        });
+        StringBuilder steps = new StringBuilder();
+        printSteps(steps);
+
+        statement.ifPresent(s -> System.out.println(s.getName()));
+
+        if (!statement.isPresent()) {
+            Macros.StructuredMacro macro = (Macros.StructuredMacro) getMacro(EXPANDABLE);
+            String text = macro.titledText(sectionName, steps.toString());
+            System.out.println("<<<<");
+            System.out.println(sectionName);
+            System.out.println("====");
+            System.out.println(steps.toString());
+            System.out.println(">>>>");
+            sb.append(text);
+            sectionName = null;
+        }
     }
 
     private void printSteps(StringBuilder sb) {
@@ -251,7 +259,8 @@ public class ConfluenceStorageFormatter implements Formatter {
 
     private void printComments(StringBuilder sb, List<Comment> comments, String indent) {
         for (Comment comment : comments) {
-            sb.append(indent + comment.getValue());
+            sb.append(indent)
+                    .append(comment.getValue());
         }
     }
 
@@ -286,14 +295,9 @@ public class ConfluenceStorageFormatter implements Formatter {
     }
 
     private List<Tag> findJiraIdsAndExtractFromOriginalList(List<Tag> tags) {
-        List<Tag> jiraIds = new ArrayList<>();
-        for (Tag tag : tags) {
-            if (tag.getName().matches(JIRA_ISSUE_ID_FORMAT)) {
-                jiraIds.add(tag);
-            }
-        }
-        tags.removeAll(jiraIds);
-        return jiraIds;
+        return tags.stream()
+                .filter(tag -> !tag.getName().matches(JIRA_ISSUE_ID_FORMAT))
+                .collect(Collectors.toList());
     }
 
     public static class Options {
